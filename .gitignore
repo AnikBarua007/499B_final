@@ -1,0 +1,63 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# ── Virtual environments ───────────────────────────────────────────────────────
+.venv*/
+venv/
+env/
+ENV/
+
+# ── Datasets (raw & processed) ────────────────────────────────────────────────
+Datasets/TSB-AD-Datasets/
+Datasets/TSB-AD-M/
+Datasets/TSB-AD-U/
+
+# Large binary score files produced by inference
+benchmark_exp/eval/score/
+benchmark_exp/eval/metrics/
+
+# ── Jupyter / IPython ─────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+benchmark_exp/logs/
+lightning_logs/
+*.log
+
+# ── Temporary / scratch files ─────────────────────────────────────────────────
+benchmark_exp/tmp_*.csv
+benchmark_exp/scratch_analysis.py
+benchmark_exp/debug_test.py
+benchmark_exp/test_adaptive_window.py
+benchmark_exp/test_improvements.py
+benchmark_exp/test_improvements_fast.py
+
+# ── NumPy binary data files ───────────────────────────────────────────────────
+*.npy
+*.npz
+
+# ── Run scripts (auto-generated) ─────────────────────────────────────────────
+run_scripts/
+
+# ── Model-specific exclusions ─────────────────────────────────────────────────
+TSB_AD/models/NormA.py
+
+# ── OS / editor artifacts ─────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# ── Misc ──────────────────────────────────────────────────────────────────────
+numpy
