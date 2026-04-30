@@ -490,34 +490,37 @@ if res is not None:
     X_res = res["X"]
 
     st.success(f"✅ Analysis complete in **{res['elapsed']:.2f}s** — {res['data_name']}")
+    
+    # ---- Setup Tabs for Better Readability ----
+    tab_dash, tab_under, tab_capstone = st.tabs([
+        "📈 Detection Dashboard", 
+        "🔬 Under the Hood", 
+        "📋 Capstone Research Summary"
+    ])
 
-    # SECTION 2 — Split-screen plot
-    st.markdown("### Split-Screen: Signal vs. Anomaly Scores")
+    with tab_dash:
+        st.markdown("### ⚡  Interactive Threshold Tuning")
+        s_min, s_max = float(np.min(scores)), float(np.max(scores))
+        default_thresh = float(np.percentile(scores, 95))
 
-    # SECTION 3 — Threshold slider + live metrics
-    st.markdown("### ⚡  Interactive Threshold Tuning")
-    s_min, s_max = float(np.min(scores)), float(np.max(scores))
-    default_thresh = float(np.percentile(scores, 95))
+        threshold = st.slider(
+            "Anomaly Threshold", min_value=s_min, max_value=s_max,
+            value=default_thresh, step=(s_max - s_min) / 200,
+            help="Drag to see how precision / recall trade off — this is why threshold-independent metrics (VUS/AUC) matter!",
+        )
 
-    threshold = st.slider(
-        "Anomaly Threshold", min_value=s_min, max_value=s_max,
-        value=default_thresh, step=(s_max - s_min) / 200,
-        help="Drag to see how precision / recall trade off — this is why threshold-independent metrics (VUS/AUC) matter!",
-    )
+        prec, rec, f1 = compute_metrics(scores, y_res, threshold)
+        mc1, mc2, mc3 = st.columns(3)
+        mc1.metric("Precision", f"{prec:.4f}")
+        mc2.metric("Recall", f"{rec:.4f}")
+        mc3.metric("PA-F1 (approx)", f"{f1:.4f}")
 
-    prec, rec, f1 = compute_metrics(scores, y_res, threshold)
-    mc1, mc2, mc3 = st.columns(3)
-    mc1.metric("Precision", f"{prec:.4f}")
-    mc2.metric("Recall", f"{rec:.4f}")
-    mc3.metric("PA-F1 (approx)", f"{f1:.4f}")
+        st.markdown("### Signal vs. MaskAD Scores")
+        st.plotly_chart(plot_split(X_res, y_res, scores, threshold),
+                        use_container_width=True, key="split_chart")
 
-    st.plotly_chart(plot_split(X_res, y_res, scores, threshold),
-                    use_container_width=True, key="split_chart")
-
-    # SECTION 4 — Component Breakdown
-    if show_breakdown:
-        st.markdown("---")
-        st.markdown("## 🔬  Under the Hood — Scoring Breakdown")
+    with tab_under:
+        st.markdown("### Scoring Breakdown")
         st.markdown(
             '<div class="glass-card">'
             "MaskAD's final anomaly score is the <b>sum</b> of two independent signals: "
@@ -528,165 +531,116 @@ if res is not None:
             "</div>",
             unsafe_allow_html=True,
         )
+        
         st.plotly_chart(
             plot_breakdown(res["recon"], res["proto"], y_res),
             use_container_width=True, key="breakdown_chart",
         )
-
-    # ---- SECTION 5 — Capstone Summary ----
-    st.markdown("---")
-    st.markdown("## 📋  Capstone Research Summary")
-    
-    cs1, cs2, cs3 = st.columns(3)
-    cs1.metric("Benchmark", "TSB-AD  ·  200 datasets")
-    cs2.metric("Model Size", "~2.4M params")
-    cs3.metric("Key Metric", "VUS-ROC: 0.7868")
-
-    st.markdown(
-        '<div class="glass-card">'
-        "<h4 style='color:#94a3b8; margin-top:0;'>🔬 MaskAD Architecture</h4>"
-        "<ul style='color:#cbd5e1;'>"
-        "<li><b>Self-Supervised Masked Pretraining:</b> Random masking + noise injection during training forces robust feature learning</li>"
-        "<li><b>Hybrid Encoder-Decoder:</b> 1D-CNN layers + GRU bottleneck (64 units) for capturing temporal patterns</li>"
-        "<li><b>Dual-Signal Anomaly Scoring:</b> Combines reconstruction error + prototype distance for robustness</li>"
-        "<li><b>Contiguity-Aware Post-Processing:</b> Moving-average smoothing (5-point) bridging anomaly spikes into contiguous events</li>"
-        "</ul>"
-        "</div>",
-        unsafe_allow_html=True,
-    )
-
-    # ---- Performance Highlights ----
-    st.markdown("### Evaluation Results (200-Dataset Benchmark)")
-    res_col1, res_col2, res_col3, res_col4 = st.columns(4)
-    res_col1.metric("VUS-ROC", "0.7868", delta=None)
-    res_col2.metric("PA-F1", "0.3488", delta=None)
-    res_col3.metric("Affiliation-F", "0.6362", delta=None)
-    res_col4.metric("AUC-PR", "0.3261", delta=None)
-
-    st.markdown(
-        '<div class="glass-card">'
-        "<h4 style='color:#94a3b8; margin-top:0;'>💡 Why These Metrics Matter</h4>"
-        "<p style='color:#cbd5e1;'>"
-        "<b>VUS-ROC (0.7868):</b> Threshold-independent ranking metric. Proves the model consistently scores true anomalies higher than normal data."
-        "<br><b>PA-F1 (0.3488):</b> Point-Adjusted F1 measures detection of anomaly events. Much higher than Standard-F1 due to our smoothing pipeline."
-        "<br><b>Affiliation-F (0.6362):</b> Measures temporal alignment with ground truth. High score confirms our contiguity post-processing works!"
-        "</p>"
-        "</div>",
-        unsafe_allow_html=True,
-    )
-
-    st.markdown("### 🏆 Leaderboard Comparison")
-    st.markdown("Performance of **Mask-AD** against state-of-the-art anomaly detectors on the TSB-AD benchmark.")
-    
-    leaderboard_data = {
-        "Rank": [1, 2, 3, 4, 5],
-        "Method": ["Mask-AD", "CNN", "PCA", "OmniAnomaly", "USAD"],
-        "AUC-PR": [0.3269, 0.3200, 0.3100, 0.2700, 0.2600],
-        "AUC-ROC": [0.7786, 0.7300, 0.7000, 0.6500, 0.6400],
-        "VUS-PR": [0.34416, 0.3100, 0.3100, 0.3100, 0.3000],
-        "VUS-ROC": [0.7869, 0.7600, 0.7400, 0.6900, 0.6800]
-    }
-    df_leaderboard = pd.DataFrame(leaderboard_data)
-    
-    # Apply styling to highlight Mask-AD
-    def highlight_maskad(row):
-        if row["Method"] == "Mask-AD":
-            return ['background-color: rgba(0, 229, 255, 0.15); color: #00E5FF'] * len(row)
-        return [''] * len(row)
         
-    styled_df = df_leaderboard.style.apply(highlight_maskad, axis=1).format({
-        'AUC-PR': '{:.4f}', 'AUC-ROC': '{:.4f}', 'VUS-PR': '{:.5f}', 'VUS-ROC': '{:.4f}'
-    })
-    
-    st.dataframe(styled_df, use_container_width=True, hide_index=True)
+        st.markdown("---")
+        st.markdown("### Methodology & Design Choices")
+        
+        with st.expander("**1. Self-Supervised Learning:**"):
+            st.write(
+                "Rather than training on labeled anomalies (expensive & limited), MaskAD trains exclusively on normal data. "
+                "During training, 25% of each window is randomly masked, forcing the model to reconstruct missing segments. "
+                "This ensures the model learns the underlying structure of 'normal' behavior and flags deviations from it."
+            )
+        
+        with st.expander("**2. Why Prototype-Based Scoring?**"):
+            st.write(
+                "The latent bottleneck embeddings are L2-normalized and compared to a learned prototype (centroid of normal embeddings). "
+                "This creates a second, independent anomaly signal orthogonal to reconstruction error. "
+                "Fusing both signals reduces false positives and catches different types of anomalies."
+            )
 
+        with st.expander("**3. Contiguity Post-Processing:**"):
+            st.write(
+                "Raw model scores are often spiky, with isolated high values. Event-based F1 metrics heavily penalize fragmentation. "
+                "Our 5-point moving-average convolution 'smooths' the scores, bridging short gaps and creating solid anomaly regions. "
+                "This single innovation drives Event-F1 from ~0.0 to ~0.31 without harming VUS performance."
+            )
 
-    # ---- Dataset Breakdown ----
-    st.markdown("### Tested Domains (From 1,070 Files)")
-    st.markdown(
-        '<div class="glass-card">'
-        "<p style='color:#cbd5e1; font-size:0.95rem;'>"
-        "🌐 <b>Web Services & IT (29%)</b> — Detecting server anomalies in cloud infrastructure<br>"
-        "🏥 <b>Medical (18%)</b> — ECG heartbeat anomalies and patient monitoring<br>"
-        "🏭 <b>Facility (18%)</b> — Power grids, HVAC systems, facility management<br>"
-        "🛰️ <b>Spacecraft & Sensors (11%)</b> — Telemetry from space missions and equipment<br>"
-        "👤 <b>Human Activity & Synthetic (24%)</b> — Motion capture, activity tracking, generated test cases"
-        "</p>"
-        "</div>",
-        unsafe_allow_html=True,
-    )
+    with tab_capstone:
+        cs1, cs2, cs3 = st.columns(3)
+        cs1.metric("Benchmark", "TSB-AD  ·  200 datasets")
+        cs2.metric("Model Size", "~2.4M params")
+        cs3.metric("Key Metric", "VUS-ROC: 0.7868")
 
-    # ---- Methodology ----
-    st.markdown("---")
-    st.markdown("## 🔬  Methodology & Design Choices")
-    
-    with st.expander("**1. Self-Supervised Learning:**"):
-        st.write(
-            "Rather than training on labeled anomalies (expensive & limited), MaskAD trains exclusively on normal data. "
-            "During training, 25% of each window is randomly masked, forcing the model to reconstruct missing segments. "
-            "This ensures the model learns the underlying structure of 'normal' behavior and flags deviations from it."
-        )
-    
-    with st.expander("**2. Why Prototype-Based Scoring?**"):
-        st.write(
-            "The latent bottleneck embeddings are L2-normalized and compared to a learned prototype (centroid of normal embeddings). "
-            "This creates a second, independent anomaly signal orthogonal to reconstruction error. "
-            "Fusing both signals reduces false positives and catches different types of anomalies."
-        )
-
-    with st.expander("**3. Contiguity Post-Processing:**"):
-        st.write(
-            "Raw model scores are often spiky, with isolated high values. Event-based F1 metrics heavily penalize fragmentation. "
-            "Our 5-point moving-average convolution 'smooths' the scores, bridging short gaps and creating solid anomaly regions. "
-            "This single innovation drives Event-F1 from ~0.0 to ~0.31 without harming VUS performance."
-        )
-
-    # ---- Novelty ----
-    st.markdown("---")
-    st.markdown("## ⭐  Key Novelties")
-
-    nov1, nov2, nov3 = st.columns(3)
-    with nov1:
         st.markdown(
             '<div class="glass-card">'
-            "<h4 style='color:#FFAC1C;'>1 · Masked Self-Supervised</h4>"
-            "<p style='color:#cbd5e1; font-size:0.9rem;'>"
-            "Random masking + noise injection during pretraining. Proven to improve generalization vs. standard autoencoders."
-            "</p>"
-            "</div>",
-            unsafe_allow_html=True,
-        )
-    with nov2:
-        st.markdown(
-            '<div class="glass-card">'
-            "<h4 style='color:#00E5FF;'>2 · Hybrid Architecture</h4>"
-            "<p style='color:#cbd5e1; font-size:0.9rem;'>"
-            "1D-CNN + GRU fusion captures both local patterns and temporal dependencies efficiently."
-            "</p>"
-            "</div>",
-            unsafe_allow_html=True,
-        )
-    with nov3:
-        st.markdown(
-            '<div class="glass-card">'
-            "<h4 style='color:#22c55e;'>3 · Contiguity Pipeline</h4>"
-            "<p style='color:#cbd5e1; font-size:0.9rem;'>"
-            "Adaptive smoothing specifically designed to align with event-based evaluation metrics."
-            "</p>"
+            "<h4 style='color:#94a3b8; margin-top:0;'>🔬 MaskAD Architecture</h4>"
+            "<ul style='color:#cbd5e1; margin-bottom:0;'>"
+            "<li><b>Self-Supervised Masked Pretraining:</b> Random masking + noise injection during training forces robust feature learning</li>"
+            "<li><b>Hybrid Encoder-Decoder:</b> 1D-CNN layers + GRU bottleneck (64 units) for capturing temporal patterns</li>"
+            "<li><b>Dual-Signal Anomaly Scoring:</b> Combines reconstruction error + prototype distance for robustness</li>"
+            "</ul>"
             "</div>",
             unsafe_allow_html=True,
         )
 
-    # ---- Footer ----
-    st.markdown("---")
-    st.markdown(
-        '<div style="text-align:center; color:#64748b; font-size:0.85rem; margin-top:40px;">'
-        "<b>MaskAD — Capstone Research Project</b><br>"
-        "Hybrid Masked Autoencoder for Time-Series Anomaly Detection<br>"
-        "<br>"
-        "📊 <b>Evaluated on:</b> TSB-AD Benchmark (1,070 real-world datasets)<br>"
-        "🧠 <b>Framework:</b> TensorFlow 2.x · Keras · scikit-learn<br>"
-        "📈 <b>Best Metric:</b> VUS-ROC = 0.7868 · Affiliation-F = 0.6362"
-        "</div>",
-        unsafe_allow_html=True,
-    )
+        st.markdown("### 🏆 Leaderboard Comparison")
+        st.markdown("Performance of **Mask-AD** against state-of-the-art anomaly detectors on the TSB-AD benchmark.")
+        
+        leaderboard_data = {
+            "Rank": [1, 2, 3, 4, 5],
+            "Method": ["Mask-AD", "CNN", "PCA", "OmniAnomaly", "USAD"],
+            "AUC-PR": [0.3269, 0.3200, 0.3100, 0.2700, 0.2600],
+            "AUC-ROC": [0.7786, 0.7300, 0.7000, 0.6500, 0.6400],
+            "VUS-PR": [0.34416, 0.3100, 0.3100, 0.3100, 0.3000],
+            "VUS-ROC": [0.7869, 0.7600, 0.7400, 0.6900, 0.6800]
+        }
+        df_leaderboard = pd.DataFrame(leaderboard_data)
+        
+        def highlight_maskad(row):
+            if row["Method"] == "Mask-AD":
+                return ['background-color: rgba(0, 229, 255, 0.15); color: #00E5FF'] * len(row)
+            return [''] * len(row)
+            
+        styled_df = df_leaderboard.style.apply(highlight_maskad, axis=1).format({
+            'AUC-PR': '{:.4f}', 'AUC-ROC': '{:.4f}', 'VUS-PR': '{:.5f}', 'VUS-ROC': '{:.4f}'
+        })
+        
+        st.dataframe(styled_df, use_container_width=True, hide_index=True)
+
+        st.markdown("---")
+        st.markdown("### ⭐  Key Novelties")
+        nov1, nov2, nov3 = st.columns(3)
+        with nov1:
+            st.markdown(
+                '<div class="glass-card">'
+                "<h5 style='color:#FFAC1C; margin-top:0;'>1 · Masked Self-Supervised</h5>"
+                "<p style='color:#cbd5e1; font-size:0.85rem; margin-bottom:0;'>"
+                "Random masking + noise injection during pretraining. Proven to improve generalization."
+                "</p>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+        with nov2:
+            st.markdown(
+                '<div class="glass-card">'
+                "<h5 style='color:#00E5FF; margin-top:0;'>2 · Hybrid Architecture</h5>"
+                "<p style='color:#cbd5e1; font-size:0.85rem; margin-bottom:0;'>"
+                "1D-CNN + GRU fusion captures both local patterns and temporal dependencies efficiently."
+                "</p>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+        with nov3:
+            st.markdown(
+                '<div class="glass-card">'
+                "<h5 style='color:#22c55e; margin-top:0;'>3 · Contiguity Pipeline</h5>"
+                "<p style='color:#cbd5e1; font-size:0.85rem; margin-bottom:0;'>"
+                "Adaptive smoothing specifically designed to align with event-based evaluation metrics."
+                "</p>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
+
+        st.markdown(
+            '<div style="text-align:center; color:#64748b; font-size:0.85rem; margin-top:30px;">'
+            "<b>MaskAD — Capstone Research Project</b><br>"
+            "Hybrid Masked Autoencoder for Time-Series Anomaly Detection<br>"
+            "</div>",
+            unsafe_allow_html=True,
+        )
