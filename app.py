@@ -308,16 +308,46 @@ def compute_metrics(scores, y, threshold):
 # ==========================================
 def run_model(X, epochs):
     """Train MaskAD and return detailed scores."""
+    if X is None or len(X) == 0:
+        st.error("❌ Error: Dataset is empty or could not be loaded.")
+        return None
+        
+    if np.isnan(X).any() or np.isinf(X).any():
+        st.warning("⚠️ Warning: Dataset contains NaN or Infinity values. Replacing them with 0.")
+        X = np.nan_to_num(X)
+        
+    if len(X) < 100:
+        st.warning("⚠️ Warning: Dataset has fewer than 100 time steps. Performance may be degraded as the default window size is 100.")
+        
     try:
+        progress_text = "Initializing MaskAD Model..."
+        my_bar = st.progress(0, text=progress_text)
+        time.sleep(0.1)
+        
+        my_bar.progress(10, text="Scaling and Windowing Data...")
+        
         model = MyModel(
             window_size=100, stride=5, batch_size=128,
             ae_epochs=epochs, lr=1e-3, score_sharpness=0.0, verbose=0,
         )
+        
+        my_bar.progress(30, text=f"Training Autoencoder (Max {epochs} epochs)...")
         model.fit(X)
+        
+        my_bar.progress(70, text="Computing Prototype Distances & Reconstruction Errors...")
         detail = model.decision_function_detailed(X)
+        
+        my_bar.progress(100, text="Inference Complete!")
+        time.sleep(0.5)
+        my_bar.empty()
+        
         return detail
+    except MemoryError:
+        st.error("❌ Out of Memory Error: The dataset is too large to be processed on the current hardware. Try a smaller dataset.")
+        return None
     except Exception as e:
-        st.error(f"Model Error: {str(e)}")
+        st.error(f"❌ Unexpected Model Error: {str(e)}")
+        st.info("💡 Tip: Try checking if the dataset is properly scaled or if the window size (100) is appropriate for your data length.")
         return None
 
 
@@ -544,6 +574,32 @@ if res is not None:
         "</div>",
         unsafe_allow_html=True,
     )
+
+    st.markdown("### 🏆 Leaderboard Comparison")
+    st.markdown("Performance of **Mask-AD** against state-of-the-art anomaly detectors on the TSB-AD benchmark.")
+    
+    leaderboard_data = {
+        "Rank": [1, 2, 3, 4, 5],
+        "Method": ["Mask-AD", "CNN", "PCA", "OmniAnomaly", "USAD"],
+        "AUC-PR": [0.3269, 0.3200, 0.3100, 0.2700, 0.2600],
+        "AUC-ROC": [0.7786, 0.7300, 0.7000, 0.6500, 0.6400],
+        "VUS-PR": [0.34416, 0.3100, 0.3100, 0.3100, 0.3000],
+        "VUS-ROC": [0.7869, 0.7600, 0.7400, 0.6900, 0.6800]
+    }
+    df_leaderboard = pd.DataFrame(leaderboard_data)
+    
+    # Apply styling to highlight Mask-AD
+    def highlight_maskad(row):
+        if row["Method"] == "Mask-AD":
+            return ['background-color: rgba(0, 229, 255, 0.15); color: #00E5FF'] * len(row)
+        return [''] * len(row)
+        
+    styled_df = df_leaderboard.style.apply(highlight_maskad, axis=1).format({
+        'AUC-PR': '{:.4f}', 'AUC-ROC': '{:.4f}', 'VUS-PR': '{:.5f}', 'VUS-ROC': '{:.4f}'
+    })
+    
+    st.dataframe(styled_df, use_container_width=True, hide_index=True)
+
 
     # ---- Dataset Breakdown ----
     st.markdown("### Tested Domains (From 1,070 Files)")
