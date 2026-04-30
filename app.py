@@ -217,7 +217,7 @@ DARK_LAYOUT = dict(
     template="plotly_dark",
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(10,14,23,0.85)",
-    margin=dict(l=30, r=20, t=45, b=30),
+    margin=dict(l=30, r=20, t=60, b=30),
     font=dict(family="Inter", size=12, color="#94a3b8"),
     xaxis=dict(gridcolor="rgba(148,163,184,0.08)"),
     yaxis=dict(gridcolor="rgba(148,163,184,0.08)"),
@@ -243,7 +243,7 @@ def plot_raw(X, y, title="Dataset"):
                                line=dict(color=CYAN, width=1.2)))
     _add_anomaly_regions(fig, y)
     fig.update_layout(title=dict(text=title, font=dict(size=14)), xaxis_title="Time Step", yaxis_title="Value",
-                      showlegend=False, margin=dict(l=30, r=20, t=60, b=30), **DARK_LAYOUT)
+                      showlegend=False, **DARK_LAYOUT)
     return fig
 
 
