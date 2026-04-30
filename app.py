@@ -48,8 +48,8 @@ h2, h3 { color: #94a3b8 !important; font-weight: 600; }
 [data-testid="stMetric"]:hover {
     transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,229,255,0.12);
 }
-[data-testid="stMetricLabel"] { color: #64748b !important; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; }
-[data-testid="stMetricValue"] { color: #e2e8f0 !important; font-weight: 700; }
+[data-testid="stMetricLabel"] { color: #64748b !important; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; white-space: normal; }
+[data-testid="stMetricValue"] { color: #e2e8f0 !important; font-weight: 700; font-size: 1.4rem; }
 
 /* ---- Buttons ---- */
 .stButton > button[kind="primary"] {
@@ -142,10 +142,6 @@ def build_file_index():
             index[fname] = {"path": fpath, "meta": meta}
     
     return index
-    base = "Datasets"
-    u = sorted(glob.glob(os.path.join(base, "TSB-AD-U", "*.csv")))
-    m = sorted(glob.glob(os.path.join(base, "TSB-AD-M", "*.csv")))
-    return {"Univariate (TSB-AD-U)": u, "Multivariate (TSB-AD-M)": m}
 
 
 @st.cache_data
@@ -246,8 +242,8 @@ def plot_raw(X, y, title="Dataset"):
     fig.add_trace(go.Scattergl(y=sig, mode="lines", name="Signal",
                                line=dict(color=CYAN, width=1.2)))
     _add_anomaly_regions(fig, y)
-    fig.update_layout(title=title, xaxis_title="Time Step", yaxis_title="Value",
-                      showlegend=False, **DARK_LAYOUT)
+    fig.update_layout(title=dict(text=title, font=dict(size=14)), xaxis_title="Time Step", yaxis_title="Value",
+                      showlegend=False, margin=dict(l=30, r=20, t=60, b=30), **DARK_LAYOUT)
     return fig
 
 
@@ -356,7 +352,14 @@ with st.sidebar:
         # Display pre-scan metadata BEFORE loading
         if meta:
             st.markdown(
-                f"📊 <b>Quick Preview:</b> {meta['n_steps']:,} steps · {meta['n_features']} features · {meta['anom_pct']:.2f}% anomaly",
+                f"<div style='background:rgba(15,23,42,0.6); padding:12px; border-radius:8px; border:1px solid rgba(0,229,255,0.1); margin-bottom:15px; font-size:0.85rem; color:#cbd5e1;'>"
+                f"<b style='color:#00E5FF;'>📊 Quick Preview</b><br>"
+                f"<span style='opacity:0.8;'>"
+                f"• {meta['n_steps']:,} steps<br>"
+                f"• {meta['n_features']} features<br>"
+                f"• ~{meta['anom_pct']:.1f}% anomaly (approx)"
+                f"</span>"
+                f"</div>",
                 unsafe_allow_html=True
             )
         
@@ -408,7 +411,7 @@ st.markdown(
 st.markdown("---")
 st.markdown("## 📊  Dataset Explorer")
 
-col_chart, col_info = st.columns([3.5, 1])
+col_chart, col_info = st.columns([3, 1.2])
 with col_chart:
     st.plotly_chart(plot_raw(X, y, title=f"Dataset: {data_name}"),
                     use_container_width=True, key="raw_chart")
